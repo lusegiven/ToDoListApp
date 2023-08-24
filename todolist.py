@@ -2,6 +2,7 @@ import tkinter
 from tkinter import *
 import sqlite3
 
+#hey POV you made your first app and pushed it to github 
 
 def addTask():
     task = task_entry.get()
