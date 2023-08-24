@@ -4,7 +4,7 @@ from tkinter import *
 root = Tk()
 root.title("To-do-list")
 root.geometry("800x600+500+200")
-root.resizable(False,False)
+root.eval("tk::PlaceWindow . center")
 
 task_list = []
 
