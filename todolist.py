@@ -1,147 +1,97 @@
-import tkinter
-from tkinter import *
+import tkinter as tk
+from tkinter import messagebox
 import sqlite3
 
-def addTask():
-    task = task_entry.get()
-    task_entry.delete(0, END)
-    if task:
-        listbox.insert(0, task)
-    conn.commit()
-
-
-def deleteTask():
-    selected_task_index = listbox.curselection()
-    if selected_task_index:
-        selected_task_index = selected_task_index[0]
-        task = listbox.get(selected_task_index)
-        listbox.delete(selected_task_index)
-        cursor.execute("DELETE FROM tasks WHERE task_text=?", (task,))
-        conn.commit()
-
-
-def saveList():
-    cursor.execute("DELETE FROM tasks")
-    conn.commit()
-    for task in listbox.get(0, END):
-        cursor.execute("INSERT INTO tasks (task_text) VALUES (?)", (task,))
-    conn.commit()
-
-    listbox.delete(0, END)
-    grabAll()
-
-
-def grabAll():
-    cursor.execute("SELECT task_text FROM tasks")
-    fetched_tasks = cursor.fetchall()
-    for task in fetched_tasks:
-        listbox.insert(END, task[0])
-
-
-conn = sqlite3.connect("task_database.db")
-cursor = conn.cursor()
-cursor.execute("""CREATE TABLE if not exists tasks(task_text Text)""")
-conn.commit()
-
-root = Tk()
-root.title("To-do-list")
-root.geometry("800x600+500+200")
-root.resizable(False, False)
-
-
-def crossOff():
-    listbox.itemconfig(
-        listbox.curselection(), fg="#dedede"
-    )
-    listbox.selection_clear(0, END)
-
-
-def uncross():
-    listbox.itemconfig(
-        listbox.curselection(), fg="#000000"
-    )
-    listbox.selection_clear(0, END)
-
-
-def deleteCrossedItems():
-    count = 0
-    while count < listbox.size():
-        if listbox.itemcget(count, "fg") == "#dedede":
-            listbox.delete(listbox.index(count))
+class TodoListApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("To-do List")
+        self.root.geometry("800x600")
+        self.root.resizable(False, False)
+        
+        self.init_database()
+        self.create_widgets()
+        self.load_tasks()
+        
+    def init_database(self):
+        self.conn = sqlite3.connect("task_database.db")
+        self.cursor = self.conn.cursor()
+        self.cursor.execute("""CREATE TABLE if not exists tasks(task_text TEXT)""")
+        self.conn.commit()
+        
+    def create_widgets(self):
+        self.heading = tk.Label(self.root, text="My Tasks", font="bahnschrift 20 bold", fg="blue") 
+        self.heading.place(x=320, y=5)
+        
+        self.task_frame = tk.Frame(self.root, width=400, height=50, bg="white")  
+        self.task_frame.place(x=200, y=100)
+        
+        self.task_entry = tk.Entry(self.task_frame, width=18, font="arial 20", bg="white")  
+        self.task_entry.grid(row=0, column=0, padx=5, pady=5)
+        
+        self.add_button = tk.Button(self.task_frame, text="ADD", font="arial 20 bold", command=self.add_task, bg="green", fg="white")  
+        self.add_button.grid(row=0, column=1, padx=5, pady=5)
+        
+        self.task_list_frame = tk.Frame(self.root, width=700, height=280, bg="white")  
+        self.task_list_frame.pack(pady=(160, 0))
+        
+        self.task_listbox = tk.Listbox(self.task_list_frame, font=('arial,12'), width=40, height=10, bg="light blue", fg="black")  
+        self.task_listbox.pack(side=tk.LEFT, fill=tk.BOTH, padx=2)
+        self.task_list_frame.place(x=200, y=190)
+        
+        self.scrollbar = tk.Scrollbar(self.task_list_frame, command=self.task_listbox.yview)
+        self.scrollbar.pack(side=tk.RIGHT, fill=tk.BOTH)
+        
+        self.task_listbox.config(yscrollcommand=self.scrollbar.set)
+        
+        self.action_buttons_frame = tk.Frame(self.root, width=400, height=50) 
+        self.action_buttons_frame.place(x=200, y=400)
+        
+        self.delete_button = tk.Button(self.action_buttons_frame, text="DELETE TASK", command=self.delete_task, bg="red", fg="white")  
+        self.delete_button.grid(row=0, column=0, padx=50)
+               
+        self.task_done_button = tk.Button(self.action_buttons_frame, text="DONE", command=self.mark_task_done, bg="orange", fg="white")  
+        self.task_done_button.grid(row=0, column=5, padx=70)
+        
+        
+    def load_tasks(self): #all tasks written in the entry will be added to the listbox 
+        self.task_listbox.delete(0, tk.END)
+        self.cursor.execute("SELECT task_text FROM tasks")
+        fetched_tasks = self.cursor.fetchall()
+        for task in fetched_tasks:
+            self.task_listbox.insert(tk.END, task[0])
+            
+    def add_task(self): #adding a tak to the listbox
+        task = self.task_entry.get().strip()
+        if task:
+            self.task_listbox.insert(0, task)
+            self.cursor.execute("INSERT INTO tasks (task_text) VALUES (?)", (task,))
+            self.conn.commit()
+            self.task_entry.delete(0, tk.END)
         else:
-            count += 1
+            messagebox.showwarning("Warning", "Please enter a task.")
 
+    def delete_task(self):  #Deleting a selected task
+        selected_task_index = self.task_listbox.curselection()
+        if selected_task_index:
+            task = self.task_listbox.get(selected_task_index)
+            self.task_listbox.delete(selected_task_index)
+            self.cursor.execute("DELETE FROM tasks WHERE task_text=?", (task,))
+            self.conn.commit()
+        else:
+            messagebox.showwarning("Warning", "Please select a task to delete.")
 
-def deleteSelectedItems():
-    selected_indices = listbox.curselection()
-    for index in selected_indices:
-        listbox.delete(index)
+    def mark_task_done(self): #select a task then click on done it will be marked done by changing colour to gray
+        selected_task_index = self.task_listbox.curselection()
+        if selected_task_index:
+            task = self.task_listbox.get(selected_task_index)
+            self.task_listbox.itemconfig(selected_task_index, fg="#dedede")
+            self.task_listbox.selection_clear(0, tk.END)
+            self.conn.commit()
+        else:
+            messagebox.showwarning("Warning", "Please select a task to mark as done.")
 
-
-Image_icon = PhotoImage(file="Downloads\\task.png")
-root.iconphoto(False, Image_icon)
-
-heading = Label(root, text="My Tasks", font="bahnschrift 20 bold", fg="black", bg="#EEF1F4")
-heading.place(x=320, y=5)
-
-frame = Frame(root, width=400, height=50, bg="white")
-frame.place(x=200, y=100)
-
-task = StringVar()
-task_entry = Entry(frame, width=18, font="arial 20", bd=0)
-task_entry.place(x=10, y=7)
-
-button = Button(frame, text="ADD", font="arial 20 bold", width=6, bg="#FE036A", fg="#fff", bd=0, command=addTask)
-button.place(x=300, y=0)
-
-frame1 = Frame(root, bd=3, width=700, height=280, bg="#FFE6EE")
-frame1.pack(pady=(160, 0))
-
-listbox = Listbox(frame1, font=('arial,12'), width=40, height=10, bg="#FFE6EE", fg="black", cursor="hand2",
-                  selectmode='multiple', selectbackground="#0000FF")
-listbox.pack(side=LEFT, fill=BOTH, padx=2)
-scrollbar = Scrollbar(frame1)
-scrollbar.pack(side=RIGHT, fill=BOTH)
-
-listbox.config(yscrollcommand=scrollbar.set)
-scrollbar.config(command=listbox.yview)
-
-frame2 = Frame(root, width=400, height=50, bg="white")
-frame2.place(x=155, y=500)
-delete_button = Button(frame2, text="DELETE TASK", font="arial 10 bold", width=15, bg="#FE036A", fg="#fff", bd=0,
-                       command=deleteTask)
-delete_button.grid(row=10, column=0)
-
-frame3 = Frame(root, width=400, height=50, bg="white")
-frame3.place(x=350, y=500)
-taskdone_button = Button(frame3, text="DONE", font="arial 10 bold", width=10, bg="#FE036A", fg="#fff", bd=0,
-                         command=crossOff)
-taskdone_button.grid(row=10, column=0)
-
-frame4 = Frame(root, width=400, height=50, bg="white")
-frame4.place(x=500, y=500)
-Tasknotdone_button = Button(frame4, text="NOT DONE", font="arial 10 bold", width=15, bg="#FE036A", fg="#fff", bd=0,
-                            command=uncross)
-Tasknotdone_button.grid(row=10, column=0)
-
-frame5 = Frame(root, width=400, height=50, bg="white")
-frame5.place(x=100, y=550)
-deleteCrossedItems_button = Button(frame5, text="DELETE DONE TASKS", font="arial 10 bold", width=20, bg="#FE036A",
-                                   fg="#fff", bd=0, command=deleteCrossedItems)
-deleteCrossedItems_button.grid(row=11, column=0)
-
-frame6 = Frame(root, width=400, height=50, bg="white")
-frame6.place(x=300, y=550)
-saveList_button = Button(frame6, text="SAVE TASKS", font="arial 10 bold", width=20, bg="#FE036A", fg="#fff", bd=0,
-                         command=saveList)
-saveList_button.grid(row=12, column=0)
-
-frame7 = Frame(root, width=400, height=50, bg="white")
-frame7.place(x=500, y=550)
-deleteSelectedItems_button = Button(frame7, text="DELETE SELECTED", font="arial 10 bold", width=20, bg="#FE036A",
-                                    fg="#fff", bd=0, command=deleteSelectedItems)
-deleteSelectedItems_button.grid(row=13, column=0)
-
-grabAll()
-root.mainloop()
-conn.close()
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = TodoListApp(root)
+    root.mainloop()
